@@ -95,6 +95,30 @@ nomad s
 
 This command will run a comprehensive speed test and provide a quality assessment for streaming, gaming, and web chat.
 
+### Visa Information
+
+```bash
+nomad-cli v <nationality_country_code> <destination_country_code>
+```
+
+**Example:**
+
+```bash
+nomad-cli v au th (for Australian citizens traveling to Thailand)
+```
+
+### Flight Search
+
+```bash
+nomad-cli f <flight_number>
+```
+
+**Example:**
+
+```bash
+nomad-cli f tg413
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.

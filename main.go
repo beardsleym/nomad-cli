@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -58,6 +59,8 @@ func main() {
 		handlePing()
 	case "v", "visa":
 		handleVisa(os.Args[2:])
+	case "f", "flight":
+		handleFlight(os.Args[2:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -77,6 +80,7 @@ func printUsage() {
 	fmt.Printf("  %s    %s\n", iconSpeed(colorBold("s, speed")), "Test network speed and quality")
 	fmt.Printf("  %s    %s\n", iconLatency(colorBold("p, ping")), "Ping a list of servers to check latency")
 	fmt.Printf("  %s    %s\n", iconInfo(colorBold("v, visa")), "Get visa information for a destination country [nationality] [destination]")
+	fmt.Printf("  %s    %s\n", iconInfo(colorBold("f, flight")), "Search for flight information [flight_number]")
 	fmt.Printf("  %s    %s\n", iconInfo(colorBold("help")), "Show this help message")
 	fmt.Println()
 	printInfo("Examples:\n")
@@ -87,6 +91,7 @@ func printUsage() {
 	fmt.Printf("  %s\n", colorCyan("nomad-cli speed"))
 	fmt.Printf("  %s\n", colorCyan("nomad-cli ping"))
 	fmt.Printf("  %s\n", colorCyan("nomad-cli visa au th"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli flight tg413"))
 }
 
 func handleCurrencyConversion(args []string) {
@@ -307,3 +312,20 @@ func handleVisa(args []string) {
 	}
 }
 
+func handleFlight(args []string) {
+	if len(args) < 1 {
+		printError("Usage: nomad-cli flight <flight_number>\n")
+		printInfo("Example: nomad-cli flight tg413\n")
+		os.Exit(1)
+	}
+
+	flightNumber := args[0]
+	searchURL := fmt.Sprintf("https://www.google.com/search?q=%s", url.QueryEscape(flightNumber))
+
+	printInfo("Searching for flight %s...\n", strings.ToUpper(flightNumber))
+	err := OpenBrowser(searchURL)
+	if err != nil {
+		printError("Error opening browser: %v\n", err)
+		os.Exit(1)
+	}
+}
