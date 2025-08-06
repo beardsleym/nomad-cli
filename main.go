@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,29 +16,6 @@ type ExchangeRateResponse struct {
 	Rates map[string]float64 `json:"rates"`
 	Base  string             `json:"base"`
 	Date  string             `json:"date"`
-}
-
-type WeatherResponse struct {
-	Main struct {
-		Temp     float64 `json:"temp"`
-		Humidity int     `json:"humidity"`
-		Pressure int     `json:"pressure"`
-	} `json:"main"`
-	Weather []struct {
-		Description string `json:"description"`
-		Main        string `json:"main"`
-	} `json:"weather"`
-	Wind struct {
-		Speed float64 `json:"speed"`
-	} `json:"wind"`
-	Name string `json:"name"`
-}
-
-type TimezoneResponse struct {
-	Status       string `json:"status"`
-	Message      string `json:"message"`
-	Formatted    string `json:"formatted"`
-	TimezoneName string `json:"timezoneName"`
 }
 
 func main() {
@@ -65,7 +42,7 @@ func main() {
 		} else {
 			args = []string{} // Empty args will trigger IP-based location
 		}
-		handleWeather(args)
+		HandleWeather(args)
 	case "t", "time":
 		if len(os.Args) < 3 {
 			printError("Usage: nomad time <city or address>\n")
@@ -73,9 +50,12 @@ func main() {
 			printInfo("Example: nomad time \"123 Main St, New York, NY\"\n")
 			os.Exit(1)
 		}
-		handleTime(os.Args[2:])
+		HandleTime(os.Args[2:])
+
 	case "s", "speed", "speedtest":
 		handleSpeedTest()
+	case "p", "ping":
+		handlePing()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -93,6 +73,7 @@ func printUsage() {
 	fmt.Printf("  %s    %s\n", iconWeather(colorBold("w, weather")), "Get weather information (auto-location or specify city)")
 	fmt.Printf("  %s    %s\n", iconTime(colorBold("t, time")), "Get current time in different timezones")
 	fmt.Printf("  %s    %s\n", iconSpeed(colorBold("s, speed")), "Test network speed and quality")
+	fmt.Printf("  %s    %s\n", iconLatency(colorBold("p, ping")), "Ping a list of servers to check latency")
 	fmt.Printf("  %s    %s\n", iconInfo(colorBold("help")), "Show this help message")
 	fmt.Println()
 	printInfo("Examples:\n")
@@ -101,6 +82,7 @@ func printUsage() {
 	fmt.Printf("  %s\n", colorCyan("nomad weather London"))
 	fmt.Printf("  %s\n", colorCyan("nomad time Tokyo"))
 	fmt.Printf("  %s\n", colorCyan("nomad speed"))
+	fmt.Printf("  %s\n", colorCyan("nomad ping"))
 }
 
 func handleCurrencyConversion(args []string) {
@@ -181,167 +163,6 @@ func getExchangeRate(fromCurrency, toCurrency string) (float64, error) {
 	return rate, nil
 }
 
-func handleWeather(args []string) {
-	query := strings.Join(args, " ")
-
-	// Fetch weather data with loading spinner
-	var weatherData map[string]interface{}
-	err := WithSpinner("Fetching weather data...", func() error {
-		// Using wttr.in - if no query provided, it will auto-detect location based on IP
-		var apiURL string
-		if query == "" {
-			apiURL = "https://wttr.in/?format=j1"
-		} else {
-			// URL encode the query to handle spaces and special characters
-			encodedQuery := url.QueryEscape(query)
-			apiURL = fmt.Sprintf("https://wttr.in/%s?format=j1", encodedQuery)
-		}
-
-		client := &http.Client{
-			Timeout: 30 * time.Second,
-		}
-
-		resp, err := client.Get(apiURL)
-		if err != nil {
-			return fmt.Errorf("error fetching weather data: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("weather API returned status code %d", resp.StatusCode)
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("error reading response: %v", err)
-		}
-
-		// Parse the JSON response from wttr.in
-		if err := json.Unmarshal(body, &weatherData); err != nil {
-			return fmt.Errorf("error parsing weather data: %v", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		printError("Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Extract current weather information safely
-	currentConditions, ok := weatherData["current_condition"].([]interface{})
-	if !ok || len(currentConditions) == 0 {
-		printError("Error: Unable to parse weather data\n")
-		os.Exit(1)
-	}
-
-	current, ok := currentConditions[0].(map[string]interface{})
-	if !ok {
-		printError("Error: Unable to parse current weather conditions\n")
-		os.Exit(1)
-	}
-
-	// Display weather information with better formatting
-	fmt.Println()
-
-	// Get location name from response
-	var locationName string
-	if nearestArea, ok := weatherData["nearest_area"].([]interface{}); ok && len(nearestArea) > 0 {
-		if areaMap, ok := nearestArea[0].(map[string]interface{}); ok {
-			var areaName, country string
-
-			// Get area name
-			if areaNameArr, ok := areaMap["areaName"].([]interface{}); ok && len(areaNameArr) > 0 {
-				if areaNameMap, ok := areaNameArr[0].(map[string]interface{}); ok {
-					if value, ok := areaNameMap["value"].(string); ok {
-						areaName = value
-					}
-				}
-			}
-
-			// Get country
-			if countryArr, ok := areaMap["country"].([]interface{}); ok && len(countryArr) > 0 {
-				if countryMap, ok := countryArr[0].(map[string]interface{}); ok {
-					if value, ok := countryMap["value"].(string); ok {
-						country = value
-					}
-				}
-			}
-
-			// Build location name
-			if areaName != "" && country != "" {
-				locationName = fmt.Sprintf("%s, %s", areaName, country)
-			} else if areaName != "" {
-				locationName = areaName
-			} else {
-				locationName = query // fallback to query
-			}
-		}
-	} else {
-		locationName = query // fallback to query
-	}
-
-	// Build the main weather line
-	var condition, tempC, feelsLikeC string
-
-	// Get condition
-	if weatherDesc, ok := current["weatherDesc"].([]interface{}); ok && len(weatherDesc) > 0 {
-		if descMap, ok := weatherDesc[0].(map[string]interface{}); ok {
-			if value, ok := descMap["value"].(string); ok {
-				condition = value
-			}
-		}
-	}
-
-	// Get temperature
-	if temp, ok := current["temp_C"].(string); ok {
-		tempC = temp
-	}
-
-	// Get feels like
-	if feelsLike, ok := current["FeelsLikeC"].(string); ok {
-		feelsLikeC = feelsLike
-	}
-
-	// Display main weather line
-	if condition != "" && tempC != "" {
-		if feelsLikeC != "" && feelsLikeC != tempC {
-			fmt.Printf("%s %s in %s, %s°C (feels like %s°C)\n", iconWeather(""), colorCyan(condition), locationName, colorYellow(tempC), colorYellow(feelsLikeC))
-		} else {
-			fmt.Printf("%s %s in %s, %s°C\n", iconWeather(""), colorCyan(condition), locationName, colorYellow(tempC))
-		}
-	}
-
-	// UV Index on separate line
-	if uvIndex, ok := current["uvIndex"].(string); ok {
-		fmt.Printf("%s UV Index: %s\n", iconUV(""), colorYellow(uvIndex))
-	}
-
-	// Sunrise and Sunset
-	if weather, ok := weatherData["weather"].([]interface{}); ok && len(weather) > 0 {
-		if weatherMap, ok := weather[0].(map[string]interface{}); ok {
-			if astronomy, ok := weatherMap["astronomy"].([]interface{}); ok && len(astronomy) > 0 {
-				if astroMap, ok := astronomy[0].(map[string]interface{}); ok {
-					var sunrise, sunset string
-
-					if sunriseArr, ok := astroMap["sunrise"].(string); ok {
-						sunrise = sunriseArr
-					}
-
-					if sunsetArr, ok := astroMap["sunset"].(string); ok {
-						sunset = sunsetArr
-					}
-
-					if sunrise != "" && sunset != "" {
-						fmt.Printf("🌅 Sunrise: %s  🌇 Sunset: %s\n", colorYellow(sunrise), colorYellow(sunset))
-					}
-				}
-			}
-		}
-	}
-}
-
 // Helper function to get keys from a map
 func getKeys(m map[string]interface{}) []string {
 	keys := make([]string, 0, len(m))
@@ -416,4 +237,48 @@ func handleSpeedTest() {
 	fmt.Printf("  %-12s %s\n", iconInfo("Streaming"), streamingColor(quality.Streaming))
 	fmt.Printf("  %-12s %s\n", iconInfo("Gaming"), gamingColor(quality.Gaming))
 	fmt.Printf("  %-12s %s\n", iconInfo("Webchat/RTC"), webchatColor(quality.Webchat))
+}
+
+func handlePing() {
+	var results []PingResult
+	err := WithSpinner("Pinging servers...", func() error {
+		results = RunPingTests()
+		return nil
+	})
+
+	if err != nil {
+		printError("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Sort results by latency
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].Error != nil {
+			return false
+		}
+		if results[j].Error != nil {
+			return true
+		}
+		return results[i].Latency < results[j].Latency
+	})
+
+	fmt.Println()
+	printTitle("%s Ping Results\n", iconLatency(""))
+
+	for _, result := range results {
+		if result.Error != nil {
+			printError("  %-20s %s\n", result.Server.Name, result.Error)
+		} else {
+			latencyMs := result.Latency.Milliseconds()
+			var colorFunc func(string) string
+			if latencyMs < 50 {
+				colorFunc = colorGreen
+			} else if latencyMs < 150 {
+				colorFunc = colorYellow
+			} else {
+				colorFunc = colorRed
+			}
+			fmt.Printf("  %-20s %s\n", result.Server.Name, colorFunc(result.Latency.String()))
+		}
+	}
 }

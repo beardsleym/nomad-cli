@@ -121,8 +121,8 @@ func RunSpeedTest() (*SpeedTestResult, *NetworkQuality, error) {
 	result := &SpeedTestResult{
 		Latency:       server.Latency,
 		Jitter:        server.Jitter,
-		DownloadSpeed: server.DLSpeed,
-		UploadSpeed:   server.ULSpeed,
+		DownloadSpeed: server.DLSpeed.Mbps(),
+		UploadSpeed:   server.ULSpeed.Mbps(),
 		ServerName:    server.Name,
 		ServerCountry: server.Country,
 	}

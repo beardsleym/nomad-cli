@@ -11,6 +11,27 @@ Nomad CLI is a versatile command-line tool designed for the modern digital nomad
 
 ## Installation
 
+You can install `nomad-cli` directly using `go install`:
+
+```bash
+go install github.com/beardsleym/nomad-cli@latest
+```
+
+After installation, you can run the tool using:
+
+```bash
+nomad-cli --help
+```
+
+If you get a "command not found" error and you are using Zsh, you may need to add the Go bin directory to your `PATH`. You can do this by running the following commands:
+
+```bash
+echo 'export PATH=$(go env GOPATH)/bin:$PATH' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Alternatively, you can build from source:
+
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/your-username/nomad-cli.git
