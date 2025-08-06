@@ -76,13 +76,12 @@ func printUsage() {
 	fmt.Printf("  %s    %s\n", iconLatency(colorBold("p, ping")), "Ping a list of servers to check latency")
 	fmt.Printf("  %s    %s\n", iconInfo(colorBold("help")), "Show this help message")
 	fmt.Println()
-	printInfo("Examples:\n")
-	fmt.Printf("  %s\n", colorCyan("nomad convert 50 usd eur"))
-	fmt.Printf("  %s\n", colorCyan("nomad weather"))
-	fmt.Printf("  %s\n", colorCyan("nomad weather London"))
-	fmt.Printf("  %s\n", colorCyan("nomad time Tokyo"))
-	fmt.Printf("  %s\n", colorCyan("nomad speed"))
-	fmt.Printf("  %s\n", colorCyan("nomad ping"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli convert 50 usd eur"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli weather"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli weather London"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli time Tokyo"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli speed"))
+	fmt.Printf("  %s\n", colorCyan("nomad-cli ping"))
 }
 
 func handleCurrencyConversion(args []string) {
