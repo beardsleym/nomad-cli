@@ -1,4 +1,4 @@
-module nomad-cli
+module github.com/beardsleym/nomad-cli
 
 go 1.23.2
 
